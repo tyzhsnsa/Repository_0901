@@ -144,8 +144,12 @@ class TaskManager:
         if not self._storage_path.exists():
             return []
 
+        contents = self._storage_path.read_text(encoding="utf-8")
+        if not contents.strip():
+            return []
+
         try:
-            raw = json.loads(self._storage_path.read_text(encoding="utf-8"))
+            raw = json.loads(contents)
         except json.JSONDecodeError as exc:
             raise ValueError("Storage file is corrupted") from exc
 

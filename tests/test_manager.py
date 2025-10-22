@@ -70,3 +70,14 @@ def test_upcoming_tasks_filters_by_date(tmp_path):
 
     with pytest.raises(ValueError):
         manager.upcoming_tasks(within_days=-1)
+
+
+def test_loading_from_empty_file_returns_no_tasks(tmp_path):
+    storage = tmp_path / "tasks.json"
+    storage.write_text("   \n", encoding="utf-8")
+
+    manager = TaskManager(storage)
+    assert manager.list_tasks() == []
+
+    manager.add_task("Task A")
+    assert [task.title for task in manager.list_tasks()] == ["Task A"]
