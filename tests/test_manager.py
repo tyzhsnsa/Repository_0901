@@ -81,3 +81,56 @@ def test_loading_from_empty_file_returns_no_tasks(tmp_path):
 
     manager.add_task("Task A")
     assert [task.title for task in manager.list_tasks()] == ["Task A"]
+
+
+def test_add_task_supports_category_and_attachment(tmp_path):
+    storage = tmp_path / "tasks.json"
+    manager = TaskManager(storage)
+
+    task = manager.add_task(
+        "Share scripture",
+        "Daily devotional post",
+        category="devotional",
+        attachment_path="/tmp/image.jpg",
+    )
+
+    assert task.category == "devotional"
+    assert task.attachment_path == "/tmp/image.jpg"
+
+    reloaded = TaskManager(storage)
+    stored = reloaded.get_task(task.id)
+    assert stored.category == "devotional"
+    assert stored.attachment_path == "/tmp/image.jpg"
+
+
+def test_schedule_devotional_posts_creates_daily_tasks(tmp_path):
+    storage = tmp_path / "tasks.json"
+    manager = TaskManager(storage)
+
+    start = date.today()
+    created = manager.schedule_devotional_posts(
+        start=start,
+        days=2,
+        scripture_template="John 3:16 ({date})",
+        message_template="Grace for {date}",
+        image_path="devotional.png",
+    )
+
+    assert len(created) == 2
+    assert created[0].category == "devotional"
+    assert created[0].attachment_path == "devotional.png"
+    assert "John 3:16" in created[0].description
+    assert "Grace for" in created[0].description
+
+    tasks = manager.list_tasks()
+    assert len(tasks) == 2
+    assert tasks[0].category == "devotional"
+    assert tasks[0].attachment_path == "devotional.png"
+
+    with pytest.raises(ValueError):
+        manager.schedule_devotional_posts(
+            start=start,
+            days=0,
+            scripture_template="",
+            message_template="",
+        )

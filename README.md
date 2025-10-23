@@ -8,6 +8,8 @@ This repository provides a small, file-backed task manager that can be used from
 - Simple command line interface for adding, listing, and completing tasks.
 - Upcoming-task filter to focus on tasks that are due within a chosen number of days.
 - Library API exposed through the `task_manager` package for reuse in other scripts.
+- Optional category labels and attachment paths (useful for associating images or other assets).
+- Helper to schedule daily devotional posts that combine scripture, a daily message, and an optional image.
 
 ## Usage
 
@@ -15,6 +17,7 @@ This repository provides a small, file-backed task manager that can be used from
 $ task-manager add "Buy groceries" --due 2025-10-31
 $ task-manager list
 $ task-manager upcoming --days 3
+$ task-manager devotional --scripture "John 3:16" --message "Daily encouragement" --days 3 --image path/to/image.png
 ```
 
 The storage file defaults to `.tasks.json` in the current working directory. You can override the location with the `--storage` option on any command.
