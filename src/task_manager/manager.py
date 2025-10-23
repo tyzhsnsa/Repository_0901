@@ -18,6 +18,8 @@ class Task:
     description: str = ""
     due_date: Optional[date] = None
     completed: bool = False
+    category: Optional[str] = None
+    attachment_path: Optional[str] = None
 
     def to_dict(self) -> dict:
         """Return a JSON-serialisable representation of the task."""
@@ -35,12 +37,22 @@ class Task:
         due_date = None
         if raw_due:
             due_date = datetime.fromisoformat(raw_due).date()
+        category = payload.get("category")
+        if category is not None:
+            category = str(category)
+
+        attachment = payload.get("attachment_path")
+        if attachment is not None:
+            attachment = str(attachment)
+
         return cls(
             id=int(payload["id"]),
             title=str(payload["title"]),
             description=str(payload.get("description", "")),
             due_date=due_date,
             completed=bool(payload.get("completed", False)),
+            category=category,
+            attachment_path=attachment,
         )
 
 
@@ -70,6 +82,8 @@ class TaskManager:
         description: str = "",
         *,
         due_date: date | datetime | str | None = None,
+        category: str | None = None,
+        attachment_path: str | None = None,
     ) -> Task:
         """Create a new task and persist it.
 
@@ -78,15 +92,83 @@ class TaskManager:
 
         tasks = self._load_tasks()
         next_id = 1 if not tasks else max(task.id for task in tasks) + 1
+        normalised_category = None if category is None else str(category)
+        normalised_attachment = (
+            None if attachment_path is None else str(attachment_path)
+        )
+
         task = Task(
             id=next_id,
             title=title,
             description=description,
             due_date=self._normalise_date(due_date),
+            category=normalised_category,
+            attachment_path=normalised_attachment,
         )
         tasks.append(task)
         self._write_tasks(tasks)
         return task
+
+    def schedule_devotional_posts(
+        self,
+        *,
+        start: date | datetime | str | None = None,
+        days: int = 1,
+        title_template: str = "デボーション投稿 ({date})",
+        scripture_template: str,
+        message_template: str,
+        image_path: str | None = None,
+        category: str | None = "devotional",
+    ) -> List[Task]:
+        """Create daily devotional tasks for the requested window.
+
+        Parameters
+        ----------
+        start:
+            Date of the first devotional task. Defaults to today when not
+            provided.
+        days:
+            Number of consecutive days to schedule. Must be positive.
+        title_template / scripture_template / message_template:
+            String templates used for the generated tasks. ``{date}``
+            placeholders will be replaced with the ISO formatted date for
+            each task.
+        image_path:
+            Optional path to an image that should accompany every
+            devotional post. Stored in the task's ``attachment_path`` field.
+        category:
+            Optional category label applied to the generated tasks.
+        """
+
+        if days <= 0:
+            raise ValueError("days must be positive")
+
+        start_date = self._normalise_date(start) if start is not None else date.today()
+
+        attachment = None if image_path is None else str(image_path)
+
+        created: List[Task] = []
+        for offset in range(days):
+            due_date = start_date + timedelta(days=offset)
+            context = {"date": due_date.isoformat()}
+            title = title_template.format(**context)
+            scripture = scripture_template.format(**context)
+            message = message_template.format(**context)
+
+            description_lines = [f"聖句: {scripture}", f"御言葉: {message}"]
+            if attachment:
+                description_lines.append(f"画像: {attachment}")
+
+            task = self.add_task(
+                title,
+                "\n".join(description_lines),
+                due_date=due_date,
+                category=category,
+                attachment_path=attachment,
+            )
+            created.append(task)
+
+        return created
 
     def complete_task(self, task_id: int, *, completed: bool = True) -> Task:
         """Mark a task as complete or incomplete and persist the change."""
